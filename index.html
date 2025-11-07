@@ -61,30 +61,25 @@
     const outSummary = $("summary");
     const outRaw = $("raw");
 
-    // ----- 1) Populate MC versions dynamically from Modrinth -----
+    // 1) Populate MC versions dynamically
     (async function populateMcVersions(){
       try {
         mcSelect.disabled = true;
         mcSelect.innerHTML = `<option>Loading…</option>`;
         const res = await fetch("https://api.modrinth.com/v2/tag/game_version");
         if (!res.ok) throw new Error("Failed to fetch game versions");
-        const tags = await res.json(); // [{version: "1.21.4", ...}, ...]
+        const tags = await res.json();
 
-        // Keep only clean releases like 1.x or 1.x.y (drop snapshots/rcs)
         const clean = tags
-          .map(t => t.version || t) // tolerate either shape
+          .map(t => t.version || t)
           .filter(v => /^\d+\.\d+(\.\d+)?$/.test(v));
 
-        // Sort by numeric semver descending
         clean.sort((a, b) => {
           const pa = a.split('.').map(n=>parseInt(n,10));
           const pb = b.split('.').map(n=>parseInt(n,10));
-          // pad
           while (pa.length < 3) pa.push(0);
           while (pb.length < 3) pb.push(0);
-          for (let i=0;i<3;i++){
-            if (pb[i] !== pa[i]) return pb[i] - pa[i];
-          }
+          for (let i=0;i<3;i++){ if (pb[i] !== pa[i]) return pb[i]-pa[i]; }
           return 0;
         });
 
@@ -97,7 +92,7 @@
       }
     })();
 
-    // ----- 2) Main flow -----
+    // 2) Main flow
     runBtn.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
       if (!file) { alert("Choose a .mrpack (or .zip) first."); return; }
@@ -115,6 +110,9 @@
         const indexFile = zip.file("modrinth.index.json");
         if (!indexFile) { outSummary.textContent = "No modrinth.index.json found."; return; }
         const index = JSON.parse(await indexFile.async("string"));
+
+        // *** NEW: current MC from pack dependencies ***
+        const PACK_MC = index?.dependencies?.minecraft || "-";
 
         // Collect SHA-1s and remember paths
         const sha1ToPath = new Map();
@@ -173,7 +171,6 @@
           const arr = await res.json();
           if (!Array.isArray(arr) || !arr.length) return null;
 
-          // prefer release > beta > alpha, then newest by date
           const tier = v => v.version_type === "release" ? 3 : v.version_type === "beta" ? 2 : 1;
           arr.sort((a, b) => {
             const t = tier(b) - tier(a);
@@ -183,7 +180,7 @@
           return arr[0];
         }
 
-        // Simple concurrency limiter
+        // Concurrency limiter
         async function mapLimit(items, limit, fn) {
           const out = new Array(items.length);
           let i = 0;
@@ -204,7 +201,6 @@
 
         const rows = await mapLimit(projectIds, MAX_CONCURRENCY, async (pid) => {
           const rep = projectEntries.get(pid)?.anyVersion;
-          const currentMc = Array.isArray(rep?.game_versions) ? rep.game_versions.join(", ") : "-";
           const [proj, best] = await Promise.all([
             getProject(pid),
             getBestTargetVersion(pid, TARGET_MC, loaderFor(pid))
@@ -214,7 +210,7 @@
             name: proj?.title || rep?.name || "(unknown)",
             slug: proj?.slug,
             current_version_number: rep?.version_number || "-",
-            current_mc_versions: currentMc,
+            current_mc: PACK_MC, // <-- single value from pack dependencies
             current_loaders: Array.isArray(rep?.loaders) ? rep.loaders.join(", ") : "-",
             target_loader: loaderFor(pid),
             target_available: !!best,
@@ -229,7 +225,7 @@
         console.table(rows.map(r => ({
           Name: r.name,
           "Current Mod": r.current_version_number,
-          "Current MC": r.current_mc_versions,
+          "Current MC": r.current_mc,
           Loader: r.target_loader,
           ["Has " + r.target_mc]: r.target_available ? "✅" : "❌",
           "Target Mod": r.target_version_number,
@@ -269,7 +265,7 @@
           return `<tr>
             <td>${escapeHtml(r.name || "(unknown)")}</td>
             <td>${escapeHtml(r.current_version_number)}</td>
-            <td>${escapeHtml(r.current_mc_versions)}</td>
+            <td>${escapeHtml(r.current_mc)}</td>
             <td>${escapeHtml(r.target_loader || "-")}</td>
             <td class="${ok ? "ok" : "no"}">${ok ? "✅" : "❌"}</td>
             <td>${escapeHtml(r.target_version_number)}</td>
