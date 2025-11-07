@@ -6,27 +6,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; padding: 1rem; }
-    label,input,button { font-size: 1rem; }
+    label,input,button,select { font-size: 1rem; }
     table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: .5rem; text-align: left; }
+    th, td { border: 1px solid #ddd; padding: .5rem; text-align: left; vertical-align: top; }
     th { background: #f6f6f6; }
     .ok { color: #157347; }
     .no { color: #b02a37; }
     .muted { color: #666; }
     pre { white-space: pre-wrap; }
+    .controls { display:flex; gap:1rem; align-items:center; flex-wrap: wrap; }
   </style>
 </head>
 <body>
   <h1>Modrinth mrpack → version availability</h1>
 
-  <div style="display:flex; gap:1rem; align-items:center; flex-wrap: wrap;">
+  <div class="controls">
     <div>
       <label for="file">mrpack/zip:&nbsp;</label>
       <input type="file" id="file" accept=".mrpack,.zip" />
     </div>
     <div>
       <label for="mc">Target MC:&nbsp;</label>
-      <input id="mc" value="1.21.9" size="8" />
+      <select id="mc" disabled><option>Loading…</option></select>
     </div>
     <div>
       <label for="loader">Loader:&nbsp;</label>
@@ -48,72 +49,92 @@
     <pre id="raw"></pre>
   </details>
 
-  <!-- Your local JSZip build -->
+  <!-- Local JSZip -->
   <script src="./jszip-dist/jszip.min.js"></script>
   <script>
-    // ---- tweakables ----
-    const MAX_CONCURRENCY = 6; // be polite to the API
-    // --------------------
-
+    const MAX_CONCURRENCY = 6;
     const $ = (id) => document.getElementById(id);
     const fileInput = $("file");
     const runBtn = $("run");
-    const mcInput = $("mc");
+    const mcSelect = $("mc");
     const loaderSelect = $("loader");
     const outSummary = $("summary");
-    const outTable = $("table");
     const outRaw = $("raw");
 
+    // ----- 1) Populate MC versions dynamically from Modrinth -----
+    (async function populateMcVersions(){
+      try {
+        mcSelect.disabled = true;
+        mcSelect.innerHTML = `<option>Loading…</option>`;
+        const res = await fetch("https://api.modrinth.com/v2/tag/game_version");
+        if (!res.ok) throw new Error("Failed to fetch game versions");
+        const tags = await res.json(); // [{version: "1.21.4", ...}, ...]
+
+        // Keep only clean releases like 1.x or 1.x.y (drop snapshots/rcs)
+        const clean = tags
+          .map(t => t.version || t) // tolerate either shape
+          .filter(v => /^\d+\.\d+(\.\d+)?$/.test(v));
+
+        // Sort by numeric semver descending
+        clean.sort((a, b) => {
+          const pa = a.split('.').map(n=>parseInt(n,10));
+          const pb = b.split('.').map(n=>parseInt(n,10));
+          // pad
+          while (pa.length < 3) pa.push(0);
+          while (pb.length < 3) pb.push(0);
+          for (let i=0;i<3;i++){
+            if (pb[i] !== pa[i]) return pb[i] - pa[i];
+          }
+          return 0;
+        });
+
+        mcSelect.innerHTML = clean.map(v => `<option value="${v}">${v}</option>`).join("");
+        mcSelect.disabled = false;
+      } catch (e) {
+        mcSelect.innerHTML = `<option value="1.21.4">1.21.4</option>`;
+        mcSelect.disabled = false;
+        console.warn("Falling back to static MC version list:", e);
+      }
+    })();
+
+    // ----- 2) Main flow -----
     runBtn.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
-      if (!file) {
-        alert("Choose a .mrpack (or .zip) first.");
-        return;
-      }
-      const TARGET_MC = mcInput.value.trim();
+      if (!file) { alert("Choose a .mrpack (or .zip) first."); return; }
+      const TARGET_MC = mcSelect.value;
       const PACK_LOADER = loaderSelect.value;
 
-      outSummary.textContent = "Reading pack…";
-      outTable.innerHTML = "";
+      $("table").innerHTML = "";
       outRaw.textContent = "";
+      outSummary.textContent = "Reading pack…";
 
       try {
-        // 1) Read mrpack and parse index
+        // Read mrpack and parse index
         const zipAb = await file.arrayBuffer();
         const zip = await JSZip.loadAsync(zipAb);
-
         const indexFile = zip.file("modrinth.index.json");
-        if (!indexFile) {
-          outSummary.textContent = "No modrinth.index.json found in the archive.";
-          return;
-        }
+        if (!indexFile) { outSummary.textContent = "No modrinth.index.json found."; return; }
         const index = JSON.parse(await indexFile.async("string"));
 
-        // Collect SHA-1s and remember paths (to detect resourcepacks/)
+        // Collect SHA-1s and remember paths
         const sha1ToPath = new Map();
         const sha1s = [];
         for (const f of index.files || []) {
           const sha1 = f?.hashes?.sha1;
-          if (sha1) {
-            sha1s.push(sha1);
-            sha1ToPath.set(sha1, f.path || "");
-          }
+          if (sha1) { sha1s.push(sha1); sha1ToPath.set(sha1, f.path || ""); }
         }
-        if (!sha1s.length) {
-          outSummary.textContent = "No file hashes found in modrinth.index.json.";
-          return;
-        }
+        if (!sha1s.length) { outSummary.textContent = "No file hashes in modrinth.index.json."; return; }
 
-        outSummary.textContent = `Found ${sha1s.length} entries. Looking up projects…`;
+        outSummary.textContent = `Found ${sha1s.length} entries. Resolving projects…`;
 
-        // 2) Hash → Version (one request, returns a map)
+        // Hash → Version (map of sha1 to version object)
         const versionMap = await fetch("https://api.modrinth.com/v2/version_files", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ hashes: sha1s, algorithm: "sha1" })
         }).then(r => r.json());
 
-        // 3) Collapse to unique projects
+        // Collapse to unique projects (keep representative)
         const projectEntries = new Map(); // project_id -> { anyVersion, exampleSha1 }
         for (const [sha1, ver] of Object.entries(versionMap)) {
           if (!ver || !ver.project_id) continue;
@@ -123,12 +144,12 @@
         }
         const projectIds = [...projectEntries.keys()];
         if (!projectIds.length) {
-          outSummary.textContent = "Couldn’t resolve any project IDs from the hashes.";
+          outSummary.textContent = "Couldn’t resolve any project IDs from hashes.";
           outRaw.textContent = JSON.stringify(versionMap, null, 2);
           return;
         }
 
-        // Helper: decide loader (resourcepacks → "minecraft", else chosen loader)
+        // Helper: detect loader ("minecraft" for resourcepacks/, else selected)
         function loaderFor(projectId) {
           const { exampleSha1 } = projectEntries.get(projectId) || {};
           const path = sha1ToPath.get(exampleSha1) || "";
@@ -142,7 +163,7 @@
           return r.json();
         }
 
-        // Fetch filtered versions and pick best
+        // Fetch filtered versions for target MC+loader, pick best
         async function getBestTargetVersion(projectId, mc, loader) {
           const url = new URL(`https://api.modrinth.com/v2/project/${projectId}/version`);
           url.searchParams.set("game_versions", JSON.stringify([mc]));
@@ -152,6 +173,7 @@
           const arr = await res.json();
           if (!Array.isArray(arr) || !arr.length) return null;
 
+          // prefer release > beta > alpha, then newest by date
           const tier = v => v.version_type === "release" ? 3 : v.version_type === "beta" ? 2 : 1;
           arr.sort((a, b) => {
             const t = tier(b) - tier(a);
@@ -161,7 +183,7 @@
           return arr[0];
         }
 
-        // Concurrency limiter
+        // Simple concurrency limiter
         async function mapLimit(items, limit, fn) {
           const out = new Array(items.length);
           let i = 0;
@@ -178,39 +200,40 @@
           return out;
         }
 
-        // 4) Fetch project info + best target version per project
         outSummary.textContent = `Checking ${projectIds.length} projects for ${TARGET_MC}…`;
 
         const rows = await mapLimit(projectIds, MAX_CONCURRENCY, async (pid) => {
+          const rep = projectEntries.get(pid)?.anyVersion;
+          const currentMc = Array.isArray(rep?.game_versions) ? rep.game_versions.join(", ") : "-";
           const [proj, best] = await Promise.all([
             getProject(pid),
             getBestTargetVersion(pid, TARGET_MC, loaderFor(pid))
           ]);
-          const rep = projectEntries.get(pid)?.anyVersion;
           return {
             project_id: pid,
             name: proj?.title || rep?.name || "(unknown)",
             slug: proj?.slug,
-            current_version_number: rep?.version_number,
-            current_loaders: rep?.loaders,
+            current_version_number: rep?.version_number || "-",
+            current_mc_versions: currentMc,
+            current_loaders: Array.isArray(rep?.loaders) ? rep.loaders.join(", ") : "-",
             target_loader: loaderFor(pid),
             target_available: !!best,
-            target_version_number: best?.version_number || null,
+            target_version_number: best?.version_number || "-",
+            target_mc: TARGET_MC,
             target_date: best?.date_published || null,
             download_url: best?.files?.[0]?.url || null
           };
         });
 
-        // 5) Render table
-        renderTable(rows, TARGET_MC);
-
-        // Console table (with computed property name — Option 1)
+        renderTable(rows);
         console.table(rows.map(r => ({
           Name: r.name,
+          "Current Mod": r.current_version_number,
+          "Current MC": r.current_mc_versions,
           Loader: r.target_loader,
-          ["Has " + TARGET_MC]: r.target_available ? "✅" : "❌",
-          "Target Version": r.target_version_number || "-",
-          Published: r.target_date ? new Date(r.target_date).toLocaleDateString() : "-",
+          ["Has " + r.target_mc]: r.target_available ? "✅" : "❌",
+          "Target Mod": r.target_version_number,
+          "Published": r.target_date ? new Date(r.target_date).toLocaleDateString() : "-",
           Slug: r.slug
         })));
 
@@ -222,17 +245,20 @@
       }
     });
 
-    function renderTable(rows, targetMc) {
+    function renderTable(rows) {
       const container = document.getElementById("table");
       if (!rows?.length) { container.innerHTML = ""; return; }
 
+      const targetMc = rows[0]?.target_mc || "(target)";
       const html = [
         "<table>",
         "<thead><tr>",
         "<th>Name</th>",
+        "<th>Current mod</th>",
+        "<th>Current MC</th>",
         "<th>Loader</th>",
         `<th>Has ${escapeHtml(targetMc)}</th>`,
-        "<th>Target version</th>",
+        "<th>Target mod</th>",
         "<th>Published</th>",
         "<th>Download</th>",
         "</tr></thead><tbody>",
@@ -242,9 +268,11 @@
           const dl = r.download_url ? `<a href="${r.download_url}" target="_blank" rel="noreferrer">.jar</a>` : "";
           return `<tr>
             <td>${escapeHtml(r.name || "(unknown)")}</td>
+            <td>${escapeHtml(r.current_version_number)}</td>
+            <td>${escapeHtml(r.current_mc_versions)}</td>
             <td>${escapeHtml(r.target_loader || "-")}</td>
             <td class="${ok ? "ok" : "no"}">${ok ? "✅" : "❌"}</td>
-            <td>${escapeHtml(r.target_version_number || "-")}</td>
+            <td>${escapeHtml(r.target_version_number)}</td>
             <td>${date}</td>
             <td>${dl}</td>
           </tr>`;
