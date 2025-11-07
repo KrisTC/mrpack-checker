@@ -1,35 +1,159 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
 <head>
   <meta charset="utf-8" />
   <title>mrpack → target-version checker</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root { --bar: #4f46e5; --bar-bg:#e5e7eb; }
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; padding: 1rem; }
-    label,input,button,select { font-size: 1rem; }
+    /* ---------- THEME TOKENS (Light as base) ---------- */
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --th-bg: #f9fafb;
+      --ok: #15803d;
+      --no: #b91c1c;
+      --bar: #4f46e5;
+      --bar-bg: #e5e7eb;
+
+      --badge-fg: #111827;
+      --badge-bg: #fafafa;
+      --badge-br: #e5e7eb;
+
+      --badge-modrinth-fg: #065f46;
+      --badge-modrinth-bg: #ecfdf5;
+      --badge-modrinth-br: #d1fae5;
+
+      --badge-gh-fg: #92400e;
+      --badge-gh-bg: #fffbeb;
+      --badge-gh-br: #fde68a;
+    }
+    /* Explicit Dark */
+    :root[data-theme="dark"] {
+      --bg: #0b0f14;
+      --fg: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #253042;
+      --th-bg: #0f1620;
+      --ok: #4ade80;
+      --no: #f87171;
+      --bar: #8b9cff;
+      --bar-bg: #1f2937;
+
+      --badge-fg: #e5e7eb;
+      --badge-bg: #0f1620;
+      --badge-br: #273244;
+
+      --badge-modrinth-fg: #34d399;
+      --badge-modrinth-bg: #10241d;
+      --badge-modrinth-br: #134e4a;
+
+      --badge-gh-fg: #f59e0b;
+      --badge-gh-bg: #241a0a;
+      --badge-gh-br: #4b3713;
+    }
+    /* System Dark (applies only when data-theme=system AND OS is dark) */
+    @media (prefers-color-scheme: dark) {
+      :root[data-theme="system"] {
+        --bg: #0b0f14;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --border: #253042;
+        --th-bg: #0f1620;
+        --ok: #4ade80;
+        --no: #f87171;
+        --bar: #8b9cff;
+        --bar-bg: #1f2937;
+
+        --badge-fg: #e5e7eb;
+        --badge-bg: #0f1620;
+        --badge-br: #273244;
+
+        --badge-modrinth-fg: #34d399;
+        --badge-modrinth-bg: #10241d;
+        --badge-modrinth-br: #134e4a;
+
+        --badge-gh-fg: #f59e0b;
+        --badge-gh-bg: #241a0a;
+        --badge-gh-br: #4b3713;
+      }
+    }
+
+    /* ---------- Base UI ---------- */
+    html, body { height: 100%; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: var(--bg);
+      color: var(--fg);
+      padding: 1rem;
+    }
+    label, input, button, select { font-size: 1rem; color: var(--fg); }
+    input, select, button { background: var(--bg); border: 1px solid var(--border); border-radius: .4rem; padding: .35rem .5rem; }
     button { cursor: pointer; }
-    .controls { display:flex; gap:1rem; align-items:center; flex-wrap: wrap; }
-    .muted { color:#666; }
+    button:hover { filter: brightness(1.03); }
+    .controls { display:flex; gap:.75rem; align-items:center; flex-wrap: wrap; }
+    .muted { color: var(--muted); }
     h2 { margin: 1.5rem 0 .5rem; font-size: 1.2rem; }
     table { border-collapse: collapse; margin-top: .5rem; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: .5rem; text-align: left; vertical-align: top; }
-    th { background: #f6f6f6; }
-    .ok { color: #157347; }
-    .no { color: #b02a37; }
+    th, td { border: 1px solid var(--border); padding: .5rem; text-align: left; vertical-align: top; }
+    th { background: var(--th-bg); }
+    .ok { color: var(--ok); }
+    .no { color: var(--no); }
     pre { white-space: pre-wrap; }
     .bar { height: 10px; background: var(--bar-bg); border-radius: 999px; overflow: hidden; margin-top:.25rem; }
     .bar > span { display:block; height:100%; width:0%; background: var(--bar); transition: width .15s linear; }
     .status { display:flex; align-items:center; gap:.5rem; margin-top:.5rem; }
-    .status small { color:#555; }
-    .counts { font-size:.95rem; color:#333; }
-    .badge { display:inline-block; padding:.125rem .4rem; border-radius:.45rem; font-size:.8rem; line-height:1; border:1px solid #ddd; background:#fafafa; color:#333; }
-    .badge.modrinth { border-color:#d1fae5; background:#ecfdf5; color:#065f46; }
-    .badge.github-fallback { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+    .status small { color: var(--muted); }
+    .counts { font-size:.95rem; color: var(--fg); }
+    .badge {
+      display:inline-block; padding:.125rem .4rem; border-radius:.45rem; font-size:.8rem; line-height:1;
+      border:1px solid var(--badge-br); background: var(--badge-bg); color: var(--badge-fg); text-decoration: none;
+    }
+    .badge.modrinth { border-color: var(--badge-modrinth-br); background: var(--badge-modrinth-bg); color: var(--badge-modrinth-fg); }
+    .badge.github-fallback { border-color: var(--badge-gh-br); background: var(--badge-gh-bg); color: var(--badge-gh-fg); }
     .small { font-size:.9rem; }
+
+    /* ---------- Floating theme controls ---------- */
+    .theme-switch {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 6px;
+      z-index: 1000;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    }
+    .theme-btn {
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 6px 8px;
+      border-radius: 999px;
+      line-height: 1;
+      font-size: 18px;
+      color: var(--fg);
+    }
+    .theme-btn.active {
+      border-color: var(--border);
+      background: var(--th-bg);
+    }
+    .theme-btn:hover {
+      background: var(--th-bg);
+    }
   </style>
 </head>
 <body>
+  <!-- Floating theme switcher -->
+  <div class="theme-switch" role="group" aria-label="Theme switcher">
+    <button id="theme-system" class="theme-btn" title="System (follow OS)" aria-label="System theme">🖥️</button>
+    <button id="theme-light" class="theme-btn" title="Light" aria-label="Light theme">☀️</button>
+    <button id="theme-dark" class="theme-btn" title="Dark" aria-label="Dark theme">🌙</button>
+  </div>
+
   <h1>Modrinth mrpack → version availability</h1>
 
   <div class="controls">
@@ -83,6 +207,8 @@
     <pre id="raw"></pre>
   </details>
 
+  <!-- If you prefer a CDN, you can swap this for: 
+       <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script> -->
   <script src="./jszip-dist/jszip.min.js"></script>
   <script>
     const MAX_CONCURRENCY = 6;
@@ -114,6 +240,32 @@
     let LAST_SELECTED_LOADER = "fabric";
     let PROJECTID_TO_ORIGFILE = new Map();
 
+    /* ---------- THEME LOGIC (working) ---------- */
+    const THEME_KEY = "mrpack_checker_theme";
+    const themeBtns = {
+      system: $("theme-system"),
+      light: $("theme-light"),
+      dark: $("theme-dark"),
+    };
+
+    function setThemeAttr(val) {
+      document.documentElement.setAttribute("data-theme", val);
+      localStorage.setItem(THEME_KEY, val);
+      // update active styles
+      Object.keys(themeBtns).forEach(k => themeBtns[k].classList.toggle("active", k === val));
+    }
+
+    (function initTheme() {
+      const saved = localStorage.getItem(THEME_KEY) || "system";
+      setThemeAttr(saved);
+      // If user switches OS theme later and we're on "system", CSS updates automatically via media query
+    })();
+
+    themeBtns.system.addEventListener("click", () => setThemeAttr("system"));
+    themeBtns.light.addEventListener("click", () => setThemeAttr("light"));
+    themeBtns.dark.addEventListener("click", () => setThemeAttr("dark"));
+
+    /* ---------- UI helpers ---------- */
     function setPhase(name, extra = "") {
       phase.textContent = name;
       detail.textContent = extra;
@@ -128,7 +280,7 @@
       outSummary.textContent = "";
     }
 
-    // --- Populate MC versions dynamically ---
+    /* ---------- Populate MC versions dynamically ---------- */
     (async function populateMcVersions(){
       try {
         mcSelect.disabled = true;
@@ -159,15 +311,12 @@
       }
     })();
 
-    // --- GitHub fallback for Fabric Carpet only ---
+    /* ---------- GitHub fallback for Fabric Carpet only ---------- */
     function escReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
     async function fetchCarpetGitHubRelease(targetMc, { includePrereleases = false } = {}) {
       const res = await fetch("https://api.github.com/repos/gnembon/fabric-carpet/releases", {
-        headers: {
-          "Accept": "application/vnd.github+json",
-          "User-Agent": "kris-mrpack-checker/1.0"
-        }
+        headers: { "Accept": "application/vnd.github+json" }
       });
       if (!res.ok) return null;
       const releases = await res.json();
@@ -192,13 +341,13 @@
       return null;
     }
 
-    // Prefer primary file from a version
+    /* ---------- Prefer primary file from a version ---------- */
     function pickPrimaryFile(version) {
       if (!version || !Array.isArray(version.files) || !version.files.length) return null;
       return version.files.find(f => f.primary) || version.files[0];
     }
 
-    // --- Main flow (check) ---
+    /* ---------- Main flow (check) ---------- */
     runBtn.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
       if (!file) { alert("Choose a .mrpack (or .zip) first."); return; }
@@ -464,16 +613,14 @@
       return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
     }
 
-    // ===== Loader version lookup (Fabric) =====
+    /* ---------- Loader version lookup (Fabric) ---------- */
     async function getRecommendedLoaderVersion(targetMc, loaderName) {
       if (loaderName !== "fabric") return null; // only fabric for now
       try {
         setPhase("Fetching loader version…");
-        // Fabric Meta: returns array of entries with {loader:{version,stable}, ...}
         const res = await fetch(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(targetMc)}`);
         if (!res.ok) throw new Error(`fabric meta ${res.status}`);
         const arr = await res.json();
-        // pick first stable loader version, else first entry
         const stable = Array.isArray(arr) ? arr.find(x => x?.loader?.stable) : null;
         const pick = stable || (Array.isArray(arr) ? arr[0] : null);
         const ver = pick?.loader?.version || null;
@@ -484,7 +631,7 @@
       }
     }
 
-    // ===== MRPACK BUILDER (uses cached file metadata; no jar downloads) =====
+    /* ---------- MRPACK BUILDER (uses cached file metadata) ---------- */
     buildBtn.addEventListener("click", async () => {
       if (!LAST_ROWS.length || !LAST_INDEX || !LAST_ZIP) {
         alert("Run a check first.");
@@ -532,7 +679,6 @@
             newIndex.dependencies["fabric-loader"] = rec;
             loaderNote = `Fabric Loader set to ${rec}.`;
           } else {
-            // keep existing fabric-loader if any; otherwise leave unset
             if (newIndex.dependencies["fabric-loader"]) {
               loaderNote = `Kept existing Fabric Loader ${newIndex.dependencies["fabric-loader"]} (meta lookup failed).`;
             } else {
