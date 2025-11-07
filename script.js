@@ -389,6 +389,19 @@ function renderPartitionedTables(rows) {
 
 function renderTable(rows) {
   if (!rows?.length) return `<div class="muted">No entries.</div>`;
+  
+  // Sort by availability (unavailable first), then alphabetically by name
+  const sortedRows = [...rows].sort((a, b) => {
+    // First sort by availability (false before true, so unavailable comes first)
+    if (a.target_available !== b.target_available) {
+      return a.target_available - b.target_available;
+    }
+    // Then sort alphabetically by name
+    const nameA = (a.name || "(unknown)").toLowerCase();
+    const nameB = (b.name || "(unknown)").toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+  
   const targetMc = rows[0]?.target_mc || "(target)";
   const html = [
     "<table>",
@@ -403,7 +416,7 @@ function renderTable(rows) {
     "<th>Published</th>",
     "<th>Download</th>",
     "</tr></thead><tbody>",
-    ...rows.map(r => {
+    ...sortedRows.map(r => {
       const ok = r.target_available;
       const date = r.target_date ? new Date(r.target_date).toLocaleDateString() : "-";
       const dl = r.download_url ? `<a href="${r.download_url}" target="_blank" rel="noreferrer">.jar</a>` : "";
