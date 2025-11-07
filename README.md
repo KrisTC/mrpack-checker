@@ -2,9 +2,9 @@
 
 A web-based tool to help manage updating Modrinth modpack (.mrpack) files to different Minecraft versions. This tool analyzes your modpack and checks which mods have compatible versions for your target Minecraft version.
 
-## ⚠️ Quality Notice
+## 🏗️ Refactored Architecture (Still Vibe Coded!)
 
-This project has been "vibe coded" - prioritizing functionality over code maintainability. While it works well for its intended purpose, the codebase may not follow best practices for long-term maintenance.
+This project has been refactored from a single monolithic HTML file into a cleaner structure with proper separation of concerns. While the file organization has been improved for maintainability, this remains fundamentally "vibe coded" - prioritizing functionality and getting things done over enterprise-grade architecture. The refactoring makes it easier to work with, but don't expect production-level code standards!
 
 ## Features
 
@@ -49,7 +49,9 @@ The tool includes special handling for Fabric Carpet mod:
 ## File Structure
 
 ```
-├── index.html              # Main application (HTML + CSS + JavaScript)
+├── index.html              # Clean HTML structure and semantic markup
+├── styles.css              # All CSS styling and theming
+├── script.js               # Application logic and API interactions
 ├── jszip-dist/             # JSZip library for handling .mrpack files
 │   ├── jszip.js
 │   └── jszip.min.js
@@ -58,6 +60,27 @@ The tool includes special handling for Fabric Carpet mod:
 ├── README.md               # This file
 └── .gitignore              # Git ignore file
 ```
+
+## Architecture Benefits
+
+### 🚀 Performance Improvements
+
+- **Parallel Loading**: CSS and JavaScript can be downloaded simultaneously
+- **Browser Caching**: Separate files allow better caching strategies
+- **Reduced Initial Load**: HTML file reduced from 753 lines to just 58 lines (92% reduction)
+
+### 🔧 Maintainability
+
+- **Separation of Concerns**: HTML, CSS, and JavaScript properly separated
+- **Easier Updates**: Modify styling in `styles.css` without touching logic
+- **Better Debugging**: Clear file organization for development
+- **Code Organization**: Related functions grouped logically
+
+### 📁 File Breakdown
+
+- **`index.html`**: Semantic HTML structure, accessibility attributes, clean markup
+- **`styles.css`**: CSS custom properties, responsive design, dark/light theming
+- **`script.js`**: API interactions, file processing, UI management, pack building
 
 ## Development
 
@@ -79,13 +102,14 @@ Then open `http://localhost:8000` in your browser.
 ## API Dependencies
 
 This tool relies on the following APIs:
+
 - **Modrinth API v2**: For mod version and compatibility checking
 - **GitHub API**: Fallback for Fabric Carpet mod releases
 - **Minecraft Version Manifest**: For loading available MC versions
 
 ## Limitations
 
-- ⚠️ **Code Quality**: Prioritizes functionality over maintainability
+- ⚠️ **Still Vibe Coded**: Despite refactoring, this prioritizes "get it done" over perfect code architecture
 - 🌐 **Client-Side Only**: All processing happens in the browser
 - 📡 **API Rate Limits**: May hit rate limits with very large modpacks
 - 🔄 **No Automatic Dependencies**: Doesn't automatically resolve mod dependencies
@@ -93,7 +117,13 @@ This tool relies on the following APIs:
 
 ## Contributing
 
-While contributions are welcome, please note that this is a "vibe coded" project. The codebase prioritizes quick functionality over clean architecture. Consider this when making contributions.
+Contributions are welcome! While the files are now organized better, remember this is still fundamentally "vibe coded." When contributing:
+
+- CSS changes go in `styles.css`
+- JavaScript logic goes in `script.js`
+- HTML structure changes go in `index.html`
+- Don't expect enterprise-level code standards - this is about functionality first
+- Feel free to improve the code quality, but understand the original spirit!
 
 ## License
 

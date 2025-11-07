@@ -1,0 +1,142 @@
+/* ---------- THEME TOKENS (Light as base) ---------- */
+:root {
+  --bg: #ffffff;
+  --fg: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --th-bg: #f9fafb;
+  --ok: #15803d;
+  --no: #b91c1c;
+  --bar: #4f46e5;
+  --bar-bg: #e5e7eb;
+
+  --badge-fg: #111827;
+  --badge-bg: #fafafa;
+  --badge-br: #e5e7eb;
+
+  --badge-modrinth-fg: #065f46;
+  --badge-modrinth-bg: #ecfdf5;
+  --badge-modrinth-br: #d1fae5;
+
+  --badge-gh-fg: #92400e;
+  --badge-gh-bg: #fffbeb;
+  --badge-gh-br: #fde68a;
+}
+
+/* Explicit Dark */
+:root[data-theme="dark"] {
+  --bg: #0b0f14;
+  --fg: #e5e7eb;
+  --muted: #9ca3af;
+  --border: #253042;
+  --th-bg: #0f1620;
+  --ok: #4ade80;
+  --no: #f87171;
+  --bar: #8b9cff;
+  --bar-bg: #1f2937;
+
+  --badge-fg: #e5e7eb;
+  --badge-bg: #0f1620;
+  --badge-br: #273244;
+
+  --badge-modrinth-fg: #34d399;
+  --badge-modrinth-bg: #10241d;
+  --badge-modrinth-br: #134e4a;
+
+  --badge-gh-fg: #f59e0b;
+  --badge-gh-bg: #241a0a;
+  --badge-gh-br: #4b3713;
+}
+
+/* System Dark (applies only when data-theme=system AND OS is dark) */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --bg: #0b0f14;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #253042;
+    --th-bg: #0f1620;
+    --ok: #4ade80;
+    --no: #f87171;
+    --bar: #8b9cff;
+    --bar-bg: #1f2937;
+
+    --badge-fg: #e5e7eb;
+    --badge-bg: #0f1620;
+    --badge-br: #273244;
+
+    --badge-modrinth-fg: #34d399;
+    --badge-modrinth-bg: #10241d;
+    --badge-modrinth-br: #134e4a;
+
+    --badge-gh-fg: #f59e0b;
+    --badge-gh-bg: #241a0a;
+    --badge-gh-br: #4b3713;
+  }
+}
+
+/* ---------- Base UI ---------- */
+html, body { height: 100%; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  background: var(--bg) url('bg.svg') no-repeat top left;
+  color: var(--fg);
+  padding: 1rem;
+}
+label, input, button, select { font-size: 1rem; color: var(--fg); }
+input, select, button { background: var(--bg); border: 1px solid var(--border); border-radius: .4rem; padding: .35rem .5rem; }
+button { cursor: pointer; }
+button:hover { filter: brightness(1.03); }
+.controls { display:flex; gap:.75rem; align-items:center; flex-wrap: wrap; }
+.control-row { flex-basis: 100%; display: flex; align-items: center; gap: .75rem; }
+.muted { color: var(--muted); }
+h2 { margin: 1.5rem 0 .5rem; font-size: 1.2rem; }
+table { border-collapse: collapse; margin-top: .5rem; width: 100%; }
+th, td { border: 1px solid var(--border); padding: .5rem; text-align: left; vertical-align: top; }
+th { background: var(--th-bg); }
+.ok { color: var(--ok); }
+.no { color: var(--no); }
+pre { white-space: pre-wrap; }
+.bar { height: 10px; background: var(--bar-bg); border-radius: 999px; overflow: hidden; margin-top:.25rem; }
+.bar > span { display:block; height:100%; width:0%; background: var(--bar); transition: width .15s linear; }
+.status { display:flex; align-items:center; gap:.5rem; margin-top:.5rem; }
+.status small { color: var(--muted); }
+.counts { font-size:.95rem; color: var(--fg); }
+.badge {
+  display:inline-block; padding:.125rem .4rem; border-radius:.45rem; font-size:.8rem; line-height:1;
+  border:1px solid var(--badge-br); background: var(--badge-bg); color: var(--badge-fg); text-decoration: none;
+}
+.badge.modrinth { border-color: var(--badge-modrinth-br); background: var(--badge-modrinth-bg); color: var(--badge-modrinth-fg); }
+.badge.github-fallback { border-color: var(--badge-gh-br); background: var(--badge-gh-bg); color: var(--badge-gh-fg); }
+.small { font-size:.9rem; }
+
+/* ---------- Floating theme controls ---------- */
+.theme-switch {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 1000;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+.theme-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 999px;
+  line-height: 1;
+  font-size: 18px;
+  color: var(--fg);
+}
+.theme-btn.active {
+  border-color: var(--border);
+  background: var(--th-bg);
+}
+.theme-btn:hover {
+  background: var(--th-bg);
+}
