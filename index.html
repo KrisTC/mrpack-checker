@@ -84,7 +84,7 @@
     html, body { height: 100%; }
     body {
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      background: var(--bg);
+      background: var(--bg) url('bg.svg') no-repeat top left;
       color: var(--fg);
       padding: 1rem;
     }
@@ -93,6 +93,7 @@
     button { cursor: pointer; }
     button:hover { filter: brightness(1.03); }
     .controls { display:flex; gap:.75rem; align-items:center; flex-wrap: wrap; }
+    .control-row { flex-basis: 100%; display: flex; align-items: center; gap: .75rem; }
     .muted { color: var(--muted); }
     h2 { margin: 1.5rem 0 .5rem; font-size: 1.2rem; }
     table { border-collapse: collapse; margin-top: .5rem; width: 100%; }
@@ -161,11 +162,10 @@
       <label for="file">mrpack/zip:&nbsp;</label>
       <input type="file" id="file" accept=".mrpack,.zip" />
     </div>
-    <div>
+    
+    <div class="control-row">
       <label for="mc">Target MC:&nbsp;</label>
       <select id="mc" disabled><option>Loading…</option></select>
-    </div>
-    <div>
       <label for="loader">Loader:&nbsp;</label>
       <select id="loader">
         <option value="fabric" selected>fabric</option>
@@ -173,13 +173,14 @@
         <option value="forge">forge</option>
         <option value="neoforge">neoforge</option>
       </select>
-      <span class="muted">(* resource packs & shaders use loader “minecraft”)</span>
+      <button id="run">Check</button>
     </div>
-    <button id="run">Check</button>
-    <!-- Build & download at the top so you can see progress -->
-    <button id="build" disabled>Build updated .mrpack</button>
-    <a id="downloadLink" class="small" style="display:none;">Download ready</a>
-    <span id="buildNote" class="small muted"></span>
+    
+    <div class="control-row">
+      <button id="build" disabled>Build updated .mrpack</button>
+      <a id="downloadLink" class="small" style="display:none;">Download ready</a>
+      <span id="buildNote" class="small muted"></span>
+    </div>
   </div>
 
   <div style="margin-top:1rem;">
