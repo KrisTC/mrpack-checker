@@ -14,6 +14,7 @@
     <button id="theme-system" class="theme-btn" title="System (follow OS)" aria-label="System theme">🖥️</button>
     <button id="theme-light" class="theme-btn" title="Light" aria-label="Light theme">☀️</button>
     <button id="theme-dark" class="theme-btn" title="Dark" aria-label="Dark theme">🌙</button>
+    <button id="missing-items-btn" class="theme-btn missing-btn" title="Missing Items Tracker" aria-label="Missing Items">📋</button>
     <button id="help-btn" class="theme-btn" title="Help" aria-label="Help">❓</button>
   </div>
 
@@ -40,6 +41,7 @@
     
     <div class="control-row">
       <button id="build" disabled>Build updated .mrpack</button>
+      <button id="capture-missing" disabled>Remember missing items</button>
       <a id="downloadLink" class="small" style="display:none;">Download ready</a>
       <span id="buildNote" class="small muted"></span>
     </div>
@@ -114,6 +116,34 @@
           Kris
         </p>
       </div>
+    </div>
+  </div>
+
+  <!-- Missing Items Panel -->
+  <div id="missing-items-panel" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Missing Items Tracker</h2>
+        <button id="missing-items-close" class="modal-close" aria-label="Close missing items panel">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="missing-items-list" class="missing-items-list">
+          <p class="muted">No missing items tracked yet. Use "Remember missing items" when building modpacks to track unavailable mods.</p>
+        </div>
+        <div class="missing-items-controls">
+          <button id="check-missing-items" class="missing-check-btn">🔍 Check for Updates</button>
+          <button id="clear-missing-items" class="missing-clear-btn">🗑️ Clear All</button>
+          <span id="missing-items-status" class="missing-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="notification-toast" class="notification-toast" style="display:none;">
+    <div class="notification-content">
+      <span id="notification-text"></span>
+      <button id="notification-close" class="notification-close">&times;</button>
     </div>
   </div>
   

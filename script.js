@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 const fileInput = $("file");
 const runBtn = $("run");
 const buildBtn = $("build");
+const captureMissingBtn = $("capture-missing");
 const dlLink = $("downloadLink");
 const buildNote = $("buildNote");
 
@@ -26,6 +27,106 @@ let LAST_TARGET_MC = "";
 let LAST_PACK_NAME = "";
 let LAST_SELECTED_LOADER = "fabric";
 let PROJECTID_TO_ORIGFILE = new Map();
+
+/* ---------- MISSING ITEMS STORAGE ---------- */
+const MISSING_ITEMS_KEY = "mrpack_missing_items";
+const MISSING_ITEMS_VERSION = 1;
+
+// Data structure for missing items
+// {
+//   version: 1,
+//   items: [
+//     {
+//       id: "unique-id",
+//       name: "Mod Name",
+//       category: "mod|resourcepack|shaderpack", 
+//       targetMcVersion: "1.20.4",
+//       originalModpack: "My Modpack Name",
+//       projectId: "modrinth-project-id", // if available
+//       dateAdded: "2024-11-09T12:34:56.789Z",
+//       lastChecked: "2024-11-09T12:34:56.789Z",
+//       found: false
+//     }
+//   ]
+// }
+
+function getMissingItems() {
+  try {
+    const stored = localStorage.getItem(MISSING_ITEMS_KEY);
+    if (!stored) return { version: MISSING_ITEMS_VERSION, items: [] };
+    
+    const data = JSON.parse(stored);
+    // Handle version upgrades if needed
+    if (data.version !== MISSING_ITEMS_VERSION) {
+      return { version: MISSING_ITEMS_VERSION, items: [] };
+    }
+    
+    return data;
+  } catch (e) {
+    console.warn("Failed to load missing items:", e);
+    return { version: MISSING_ITEMS_VERSION, items: [] };
+  }
+}
+
+function saveMissingItems(data) {
+  try {
+    localStorage.setItem(MISSING_ITEMS_KEY, JSON.stringify(data));
+    return true;
+  } catch (e) {
+    console.warn("Failed to save missing items:", e);
+    return false;
+  }
+}
+
+function addMissingItem(name, category, targetMcVersion, originalModpack, projectId = null) {
+  const data = getMissingItems();
+  const id = `${category}-${name}-${targetMcVersion}`.replace(/[^a-zA-Z0-9\-]/g, '-');
+  
+  // Check if already exists
+  const existing = data.items.find(item => item.id === id);
+  if (existing) {
+    existing.originalModpack = originalModpack; // Update modpack name
+    existing.dateAdded = new Date().toISOString();
+    saveMissingItems(data);
+    return existing;
+  }
+  
+  const item = {
+    id,
+    name,
+    category,
+    targetMcVersion,
+    originalModpack,
+    projectId,
+    dateAdded: new Date().toISOString(),
+    lastChecked: null,
+    found: false
+  };
+  
+  data.items.push(item);
+  saveMissingItems(data);
+  return item;
+}
+
+function removeMissingItem(id) {
+  const data = getMissingItems();
+  data.items = data.items.filter(item => item.id !== id);
+  saveMissingItems(data);
+}
+
+function updateMissingItemStatus(id, found, lastChecked = null) {
+  const data = getMissingItems();
+  const item = data.items.find(item => item.id === id);
+  if (item) {
+    item.found = found;
+    item.lastChecked = lastChecked || new Date().toISOString();
+    saveMissingItems(data);
+  }
+}
+
+function clearMissingItems() {
+  saveMissingItems({ version: MISSING_ITEMS_VERSION, items: [] });
+}
 
 /* ---------- THEME LOGIC (working) ---------- */
 const THEME_KEY = "mrpack_checker_theme";
@@ -57,6 +158,22 @@ const helpBtn = $("help-btn");
 const helpModal = $("help-modal");
 const helpClose = $("help-close");
 
+/* ---------- MISSING ITEMS PANEL ---------- */
+const missingItemsBtn = $("missing-items-btn");
+const missingItemsPanel = $("missing-items-panel");
+const missingItemsClose = $("missing-items-close");
+const checkMissingItemsBtn = $("check-missing-items");
+const clearMissingItemsBtn = $("clear-missing-items");
+const missingItemsList = $("missing-items-list");
+const missingItemsStatus = $("missing-items-status");
+
+/* ---------- NOTIFICATION SYSTEM ---------- */
+const notificationToast = $("notification-toast");
+const notificationText = $("notification-text");
+const notificationClose = $("notification-close");
+
+let isCheckingMissingItems = false;
+
 helpBtn.addEventListener("click", () => {
   helpModal.style.display = "flex";
 });
@@ -72,10 +189,71 @@ helpModal.addEventListener("click", (e) => {
   }
 });
 
+/* ---------- MISSING ITEMS PANEL HANDLERS ---------- */
+missingItemsBtn.addEventListener("click", () => {
+  missingItemsPanel.style.display = "flex";
+  renderMissingItems();
+});
+
+missingItemsClose.addEventListener("click", () => {
+  missingItemsPanel.style.display = "none";
+});
+
+missingItemsPanel.addEventListener("click", (e) => {
+  if (e.target === missingItemsPanel) {
+    missingItemsPanel.style.display = "none";
+  }
+});
+
+checkMissingItemsBtn.addEventListener("click", () => {
+  if (!isCheckingMissingItems) {
+    checkMissingItemsForUpdates();
+  }
+});
+
+clearMissingItemsBtn.addEventListener("click", () => {
+  if (confirm("Are you sure you want to clear all missing items? This cannot be undone.")) {
+    clearMissingItems();
+    renderMissingItems();
+    updateMissingItemsButtonTitle();
+    showNotification("All missing items cleared.");
+  }
+});
+
+/* ---------- NOTIFICATION HANDLERS ---------- */
+notificationClose.addEventListener("click", () => {
+  hideNotification();
+});
+
+// Close notification after 10 seconds
+let notificationTimeout = null;
+
+function showNotification(message) {
+  notificationText.textContent = message;
+  notificationToast.style.display = "block";
+  
+  if (notificationTimeout) clearTimeout(notificationTimeout);
+  notificationTimeout = setTimeout(() => {
+    hideNotification();
+  }, 10000);
+}
+
+function hideNotification() {
+  notificationToast.style.display = "none";
+  if (notificationTimeout) {
+    clearTimeout(notificationTimeout);
+    notificationTimeout = null;
+  }
+}
+
 // Close modal with Escape key
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && helpModal.style.display === "flex") {
-    helpModal.style.display = "none";
+  if (e.key === "Escape") {
+    if (helpModal.style.display === "flex") {
+      helpModal.style.display = "none";
+    } else if (missingItemsPanel.style.display === "flex") {
+      missingItemsPanel.style.display = "none";
+    }
   }
 });
 
@@ -177,7 +355,10 @@ runBtn.addEventListener("click", async () => {
   updateTitle(); // Reset title to base title
   modsTable.innerHTML = resTable.innerHTML = shaderTable.innerHTML = "";
   outRaw.textContent = "";
-  buildBtn.disabled = true; dlLink.style.display = "none"; buildNote.textContent = "";
+  buildBtn.disabled = true; 
+  captureMissingBtn.disabled = true;
+  dlLink.style.display = "none"; 
+  buildNote.textContent = "";
 
   try {
     setPhase("Reading pack…");
@@ -372,10 +553,42 @@ runBtn.addEventListener("click", async () => {
     LAST_TARGET_MC = TARGET_MC;
     buildBtn.disabled = false;
     buildNote.textContent = "Ready to build a new .mrpack from Modrinth results.";
+
+    // Enable capture missing button
+    captureMissingBtn.disabled = false;
   } catch (err) {
     console.error(err);
     setPhase("Error", err?.message || String(err));
   }
+});
+
+/* ---------- CAPTURE MISSING ITEMS ---------- */
+captureMissingBtn.addEventListener("click", () => {
+  if (!LAST_ROWS.length || !LAST_INDEX) {
+    alert("Run a check first.");
+    return;
+  }
+
+  const missingItems = LAST_ROWS.filter(r => !r.target_available);
+  if (!missingItems.length) {
+    alert("No missing items found in the last check!");
+    return;
+  }
+
+  let captured = 0;
+  for (const item of missingItems) {
+    addMissingItem(
+      item.name,
+      item.category,
+      LAST_TARGET_MC,
+      LAST_PACK_NAME,
+      item.project_id
+    );
+    captured++;
+  }
+
+  showNotification(`Captured ${captured} missing items for tracking.`);
+  updateMissingItemsIcon();
 });
 
 function renderPartitionedTables(rows) {
@@ -582,3 +795,377 @@ function slugify(s) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 }
+
+/* ---------- MISSING ITEMS UI FUNCTIONS ---------- */
+function renderMissingItems() {
+  const data = getMissingItems();
+  const items = data.items || [];
+  
+  if (items.length === 0) {
+    missingItemsList.innerHTML = '<p class="muted">No missing items tracked yet. Use "Remember missing items" when building modpacks to track unavailable mods.</p>';
+    return;
+  }
+  
+  const html = items.map(item => {
+    const statusClass = item.found ? 'found' : 'not-found';
+    const statusText = item.found ? '✅ Found' : '❌ Still missing';
+    const lastChecked = item.lastChecked 
+      ? `Last checked: ${new Date(item.lastChecked).toLocaleString()}`
+      : 'Never checked';
+    
+    // Build view on Modrinth URL if we have project ID
+    const modrinthUrl = item.projectId ? `https://modrinth.com/project/${item.projectId}` : null;
+    const viewButton = modrinthUrl 
+      ? `<button class="missing-item-view" onclick="window.open('${modrinthUrl}', '_blank')">View on Modrinth</button>`
+      : '';
+    
+    return `
+      <div class="missing-item">
+        <div class="missing-item-header">
+          <h4 class="missing-item-name">
+            ${escapeHtml(item.name)}
+            <span class="missing-item-mc">${escapeHtml(item.targetMcVersion)}</span>
+          </h4>
+          <span class="missing-item-status ${statusClass}">${statusText}</span>
+        </div>
+        <div class="missing-item-details">
+          <div><strong>Category:</strong> ${escapeHtml(item.category)}</div>
+          <div><strong>From modpack:</strong> ${escapeHtml(item.originalModpack)}</div>
+          <div><strong>Added:</strong> ${new Date(item.dateAdded).toLocaleString()}</div>
+          <div class="muted">${lastChecked}</div>
+        </div>
+        <div class="missing-item-actions">
+          ${viewButton}
+          <button class="missing-item-remove" onclick="removeMissingItemUI('${item.id}')">Remove</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  missingItemsList.innerHTML = html;
+}
+
+function removeMissingItemUI(id) {
+  removeMissingItem(id);
+  renderMissingItems();
+  updateMissingItemsButtonTitle();
+  showNotification("Missing item removed.");
+}
+
+async function checkMissingItemsForUpdates() {
+  if (isCheckingMissingItems) return;
+  
+  const data = getMissingItems();
+  const items = data.items || [];
+  
+  if (items.length === 0) {
+    showNotification("No missing items to check.");
+    return;
+  }
+  
+  isCheckingMissingItems = true;
+  missingItemsBtn.classList.add('checking');
+  checkMissingItemsBtn.disabled = true;
+  missingItemsStatus.textContent = "Checking for updates...";
+  
+  let foundCount = 0;
+  let checkedCount = 0;
+  
+  try {
+    // Check each missing item
+    for (const item of items) {
+      missingItemsStatus.textContent = `Checking ${checkedCount + 1}/${items.length}: ${item.name}`;
+      
+      let found = false;
+      
+      if (item.projectId) {
+        // If we have a project ID, check Modrinth directly
+        try {
+          const loader = item.category === "mod" ? "fabric" : "minecraft"; // Default to fabric for mods
+          const url = new URL(`https://api.modrinth.com/v2/project/${item.projectId}/version`);
+          url.searchParams.set("game_versions", JSON.stringify([item.targetMcVersion]));
+          url.searchParams.set("loaders", JSON.stringify([loader]));
+          
+          const res = await fetch(url);
+          if (res.ok) {
+            const versions = await res.json();
+            found = Array.isArray(versions) && versions.length > 0;
+          }
+        } catch (e) {
+          console.warn(`Failed to check project ${item.projectId}:`, e);
+        }
+      } else {
+        // If no project ID, try to search by name
+        try {
+          const searchUrl = new URL("https://api.modrinth.com/v2/search");
+          searchUrl.searchParams.set("query", item.name);
+          searchUrl.searchParams.set("limit", "10");
+          
+          const searchRes = await fetch(searchUrl);
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            const hits = searchData.hits || [];
+            
+            // Look for exact or close name matches
+            for (const hit of hits) {
+              if (hit.title.toLowerCase().includes(item.name.toLowerCase()) || 
+                  item.name.toLowerCase().includes(hit.title.toLowerCase())) {
+                // Check if this project has versions for our target MC
+                try {
+                  const loader = item.category === "mod" ? "fabric" : "minecraft";
+                  const versionUrl = new URL(`https://api.modrinth.com/v2/project/${hit.project_id}/version`);
+                  versionUrl.searchParams.set("game_versions", JSON.stringify([item.targetMcVersion]));
+                  versionUrl.searchParams.set("loaders", JSON.stringify([loader]));
+                  
+                  const versionRes = await fetch(versionUrl);
+                  if (versionRes.ok) {
+                    const versions = await versionRes.json();
+                    if (Array.isArray(versions) && versions.length > 0) {
+                      found = true;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  console.warn(`Failed to check versions for ${hit.project_id}:`, e);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to search for ${item.name}:`, e);
+        }
+      }
+      
+      updateMissingItemStatus(item.id, found);
+      if (found) foundCount++;
+      checkedCount++;
+      
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Update UI
+    renderMissingItems();
+    
+    if (foundCount > 0) {
+      const foundItems = items.filter(item => {
+        const updated = getMissingItems().items.find(i => i.id === item.id);
+        return updated && updated.found;
+      }).map(item => `${item.name} (${item.originalModpack})`);
+      
+      showNotification(`🎉 Found ${foundCount} missing item(s)! Check these modpacks: ${foundItems.join(', ')}`);
+    } else {
+      showNotification("No updates found for missing items.");
+    }
+    
+    missingItemsStatus.textContent = `Last checked: ${new Date().toLocaleString()}`;
+    
+  } catch (e) {
+    console.error("Error checking missing items:", e);
+    missingItemsStatus.textContent = "Error checking for updates.";
+    showNotification("Error occurred while checking for updates.");
+  } finally {
+    isCheckingMissingItems = false;
+    missingItemsBtn.classList.remove('checking');
+    checkMissingItemsBtn.disabled = false;
+  }
+}
+
+// Auto-check missing items when page loads
+window.addEventListener('load', () => {
+  // Update missing items button title with count
+  updateMissingItemsButtonTitle();
+  
+  const data = getMissingItems();
+  if (data.items && data.items.length > 0) {
+    // Wait a bit for the page to fully load, then check in background
+    setTimeout(() => {
+      checkMissingItemsForUpdates();
+    }, 1000);
+  }
+});
+
+function updateMissingItemsButtonTitle() {
+  const data = getMissingItems();
+  const count = data.items ? data.items.length : 0;
+  if (count > 0) {
+    missingItemsBtn.title = `Missing Items Tracker (${count} tracked)`;
+  } else {
+    missingItemsBtn.title = "Missing Items Tracker";
+  }
+}
+
+// Handle capture missing items button
+captureMissingBtn.addEventListener("click", () => {
+  if (!LAST_ROWS.length || !LAST_PACK_NAME || !LAST_TARGET_MC) {
+    alert("Run a check first to capture missing items.");
+    return;
+  }
+  
+  // Find items that are not available for the target version
+  const missingItems = LAST_ROWS.filter(row => !row.target_available);
+  
+  if (missingItems.length === 0) {
+    showNotification("No missing items to capture - all mods are available for the target version!");
+    return;
+  }
+  
+  let capturedCount = 0;
+  for (const row of missingItems) {
+    addMissingItem(
+      row.name || row.slug || "(unknown)",
+      row.category,
+      LAST_TARGET_MC,
+      LAST_PACK_NAME,
+      row.project_id
+    );
+    capturedCount++;
+  }
+  
+  showNotification(`Captured ${capturedCount} missing item(s) for tracking.`);
+  
+  // Update the missing items button title
+  updateMissingItemsButtonTitle();
+});
+
+/* ---------- MISSING ITEMS FUNCTIONALITY ---------- */
+function renderMissingItems() {
+  const data = getMissingItems();
+  const items = data.items;
+
+  if (!items.length) {
+    missingItemsList.innerHTML = `<p class="muted">No missing items tracked yet. Use "Remember missing items" when building modpacks to track unavailable mods.</p>`;
+    return;
+  }
+
+  const html = items.map(item => {
+    const lastChecked = item.lastChecked 
+      ? new Date(item.lastChecked).toLocaleDateString()
+      : "Never";
+    
+    const statusClass = item.found ? "found" : "not-found";
+    const statusText = item.found ? "✅ Found" : "❌ Missing";
+
+    return `
+      <div class="missing-item">
+        <div class="missing-item-header">
+          <h4 class="missing-item-name">${escapeHtml(item.name)}</h4>
+          <span class="missing-item-status ${statusClass}">${statusText}</span>
+        </div>
+        <div class="missing-item-details">
+          <strong>Category:</strong> ${escapeHtml(item.category)} |
+          <strong>MC Version:</strong> ${escapeHtml(item.targetMcVersion)} |
+          <strong>From:</strong> ${escapeHtml(item.originalModpack)}
+        </div>
+        <div class="missing-item-details">
+          <strong>Added:</strong> ${new Date(item.dateAdded).toLocaleDateString()} |
+          <strong>Last checked:</strong> ${lastChecked}
+        </div>
+        <div class="missing-item-actions">
+          <button class="missing-item-remove" onclick="removeMissingItemAndRefresh('${item.id}')">Remove</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  missingItemsList.innerHTML = html;
+}
+
+function removeMissingItemAndRefresh(itemId) {
+  removeMissingItem(itemId);
+  renderMissingItems();
+  updateMissingItemsIcon();
+}
+
+function updateMissingItemsIcon() {
+  const data = getMissingItems();
+  const hasItems = data.items.length > 0;
+  
+  if (hasItems) {
+    missingItemsBtn.title = `Missing Items Tracker (${data.items.length} items)`;
+  } else {
+    missingItemsBtn.title = "Missing Items Tracker";
+  }
+
+  // Update icon based on status
+  if (isCheckingMissingItems) {
+    missingItemsBtn.classList.add("checking");
+  } else {
+    missingItemsBtn.classList.remove("checking");
+  }
+}
+
+async function checkMissingItemsForUpdates() {
+  const data = getMissingItems();
+  if (!data.items.length) {
+    showNotification("No missing items to check.");
+    return;
+  }
+
+  isCheckingMissingItems = true;
+  updateMissingItemsIcon();
+  checkMissingItemsBtn.disabled = true;
+  missingItemsStatus.textContent = "Checking for updates...";
+
+  try {
+    let foundItems = [];
+    let checkedCount = 0;
+
+    for (const item of data.items) {
+      missingItemsStatus.textContent = `Checking ${item.name}... (${checkedCount + 1}/${data.items.length})`;
+
+      let found = false;
+
+      // Check Modrinth for updates
+      if (item.projectId) {
+        try {
+          const loader = item.category === "mod" ? "fabric" : "minecraft"; // Default to fabric for mods
+          const response = await getBestTargetVersion(item.projectId, item.targetMcVersion, loader);
+          if (response) {
+            found = true;
+            foundItems.push(item);
+          }
+        } catch (e) {
+          console.warn(`Failed to check ${item.name}:`, e);
+        }
+      }
+
+      // Update item status
+      updateMissingItemStatus(item.id, found);
+      checkedCount++;
+    }
+
+    // Show notification with results
+    if (foundItems.length > 0) {
+      const itemNames = foundItems.map(item => item.name).join(", ");
+      showNotification(`🎉 Found updates for ${foundItems.length} item(s): ${itemNames}. Add them to modpack: ${foundItems[0].originalModpack}`);
+    } else {
+      showNotification("No updates found for missing items.");
+    }
+
+    missingItemsStatus.textContent = `Last checked: ${new Date().toLocaleString()}`;
+
+  } catch (error) {
+    console.error("Error checking missing items:", error);
+    missingItemsStatus.textContent = "Error checking for updates.";
+    showNotification("Error occurred while checking for updates.");
+  } finally {
+    isCheckingMissingItems = false;
+    updateMissingItemsIcon();
+    checkMissingItemsBtn.disabled = false;
+    renderMissingItems(); // Refresh the display
+  }
+}
+
+// Check missing items on page load if any exist
+document.addEventListener("DOMContentLoaded", () => {
+  updateMissingItemsIcon();
+  
+  const data = getMissingItems();
+  if (data.items.length > 0) {
+    // Auto-check in background
+    setTimeout(() => {
+      checkMissingItemsForUpdates();
+    }, 2000); // Wait 2 seconds after page load
+  }
+});
