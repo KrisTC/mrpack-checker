@@ -87,6 +87,62 @@ label, input, button, select { font-size: 1rem; color: var(--fg); }
 input, select, button { background: var(--bg); border: 1px solid var(--border); border-radius: .4rem; padding: .35rem .5rem; }
 button { cursor: pointer; }
 button:hover { filter: brightness(1.03); }
+
+/* Primary action buttons (Check and Build) */
+#run, #build {
+  background: var(--badge-modrinth-bg);
+  border-color: var(--badge-modrinth-br);
+  color: var(--badge-modrinth-fg);
+  font-weight: 500;
+}
+
+#run:hover, #build:hover {
+  filter: brightness(1.1);
+}
+
+#run:disabled, #build:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* Custom file input styling */
+.file-input-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#file {
+  position: absolute;
+  opacity: 0;
+  width: 0.1px;
+  height: 0.1px;
+  overflow: hidden;
+}
+
+.file-input-label {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  cursor: pointer;
+  color: var(--fg);
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.file-input-label:hover {
+  background: var(--th-bg);
+  border-color: var(--badge-modrinth-br);
+}
+
+.file-name {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-style: italic;
+}
 .controls { display:flex; gap:.75rem; align-items:center; flex-wrap: wrap; }
 .control-row { flex-basis: 100%; display: flex; align-items: center; gap: .75rem; }
 .muted { color: var(--muted); }
@@ -309,8 +365,8 @@ pre { white-space: pre-wrap; }
 .missing-item {
   border: 1px solid var(--border);
   border-radius: 0.375rem;
-  padding: 1rem;
-  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
   background: var(--bg);
 }
 
@@ -318,7 +374,7 @@ pre { white-space: pre-wrap; }
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .missing-item-name {
@@ -359,6 +415,11 @@ pre { white-space: pre-wrap; }
   font-size: 0.875rem;
   color: var(--muted);
   margin: 0.25rem 0;
+  line-height: 1.4;
+}
+
+.missing-item-details strong {
+  color: var(--fg);
 }
 
 .missing-item-actions {
@@ -366,6 +427,24 @@ pre { white-space: pre-wrap; }
   gap: 0.5rem;
   align-items: center;
   margin-top: 0.5rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.missing-item-actions > div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.missing-item-lastcheck {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.missing-item-lastcheck strong {
+  color: var(--fg);
 }
 
 .missing-item-remove {

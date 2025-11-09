@@ -23,7 +23,11 @@
   <div class="controls">
     <div>
       <label for="file">mrpack file:&nbsp;</label>
-      <input type="file" id="file" accept=".mrpack" />
+      <div class="file-input-wrapper">
+        <input type="file" id="file" accept=".mrpack" />
+        <label for="file" class="file-input-label">Choose file</label>
+        <span id="file-name" class="file-name"></span>
+      </div>
     </div>
     
     <div class="control-row">
@@ -39,9 +43,9 @@
       <button id="run">Check</button>
     </div>
     
-    <div class="control-row">
+    <div class="control-row" id="build-controls" style="display:none;">
       <button id="build" disabled>Build updated .mrpack</button>
-      <button id="capture-missing" disabled>Remember missing items</button>
+      <button id="capture-missing" disabled style="display:none;">Remember missing items</button>
       <a id="downloadLink" class="small" style="display:none;">Download ready</a>
       <span id="buildNote" class="small muted"></span>
     </div>
