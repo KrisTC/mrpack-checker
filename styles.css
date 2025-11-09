@@ -292,22 +292,26 @@ pre { white-space: pre-wrap; }
 /* ---------- Missing Items UI ---------- */
 .missing-btn {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.missing-btn.checking::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 8px;
-  height: 8px;
-  border: 1px solid var(--fg);
-  border-radius: 50%;
-  border-top-color: transparent;
-  animation: spin 1s linear infinite;
+/* Missing Items Button */
+#missing-items-btn {
+  color: #dc2626; /* Red color */
 }
 
-@keyframes spin {
+#missing-items-btn svg {
+  color: #dc2626; /* Red color for the X */
+}
+
+#missing-items-btn.checking svg {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 

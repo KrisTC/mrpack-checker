@@ -1049,6 +1049,7 @@ window.addEventListener('load', () => {
 function updateMissingItemsButtonTitle() {
   const data = getMissingItems();
   const count = data.items ? data.items.length : 0;
+  
   if (count > 0) {
     missingItemsBtn.title = `Missing Items Tracker (${count} tracked)`;
   } else {
@@ -1058,10 +1059,10 @@ function updateMissingItemsButtonTitle() {
 
 function updateMissingItemsIcon() {
   const data = getMissingItems();
-  const hasItems = data.items.length > 0;
+  const count = data.items ? data.items.length : 0;
   
-  if (hasItems) {
-    missingItemsBtn.title = `Missing Items Tracker (${data.items.length} items)`;
+  if (count > 0) {
+    missingItemsBtn.title = `Missing Items Tracker (${count} items)`;
   } else {
     missingItemsBtn.title = "Missing Items Tracker";
   }
