@@ -536,7 +536,7 @@ runBtn.addEventListener("click", async () => {
         ]);
 
         let best = bestModrinth;
-        let source = bestModrinth ? "modrinth" : "none";
+        let source = proj ? "modrinth" : "none";
 
         // Carpet fallback (only if Modrinth has no target build)
         const isCarpet = (proj?.slug === "fabric-carpet") || (pid === "TQTTVgYE");
@@ -698,9 +698,9 @@ function renderTable(rows) {
       const sourceBadge =
         r.source === "github-fallback"
           ? `<a class="badge github-fallback" href="https://github.com/gnembon/fabric-carpet/releases" target="_blank" rel="noreferrer" title="Found on GitHub because Modrinth had no ${escapeHtml(r.target_mc)} build">GitHub fallback</a>`
-          : (r.source === "modrinth" && r.target_file_sha512)
+          : r.source === "modrinth"
             ? `<a class="badge modrinth" href="${escapeHtml(r.project_url)}" target="_blank" rel="noreferrer"
-                 title="Open on Modrinth — included in .mrpack">Modrinth</a>`
+                 title="Open on Modrinth${r.target_file_sha512 ? ' — included in .mrpack' : ''}">Modrinth</a>`
             : `<span class="badge" title="No match">–</span>`;
       return `<tr>
         <td>${escapeHtml(r.name || "(unknown)")}</td>
