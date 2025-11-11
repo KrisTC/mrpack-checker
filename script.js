@@ -55,6 +55,7 @@ function getDefaultLoaderForCategory(category) {
     case "shaderpack":
       return "iris";
     case "resourcepack":
+    case "datapack":
     default:
       return "minecraft";
   }
@@ -124,7 +125,7 @@ async function getProjectsBatch(projectIds) {
 /**
  * Resolve a Modrinth project ID from a project name
  * @param {string} name - The project name to search for
- * @param {string} category - Project category ("mod", "resourcepack", "shaderpack")
+ * @param {string} category - Project category ("mod", "resourcepack", "shaderpack", "datapack")
  * @returns {Promise<string|null>} - The project ID or null if not found
  */
 async function resolveProjectIdFromName(name, category) {
@@ -308,6 +309,7 @@ class Modpack {
         const path = sha1ToPath.get(sha1) || "";
         const category = path.startsWith("resourcepacks/") ? "resourcepack"
                        : path.startsWith("shaderpacks/")    ? "shaderpack"
+                       : path.startsWith("datapacks/")      ? "datapack"
                        : "mod";
         projectEntries.set(ver.project_id, { anyVersion: ver, exampleSha1: sha1, category });
         this.projectIdToOrigFile.set(ver.project_id, sha1ToFileObj.get(sha1));
@@ -323,7 +325,7 @@ class Modpack {
     function getLoaderForProject(proj, cat, packLoader) {
       // For mods, use the pack loader (fabric, etc.)
       if (cat === "mod") {
-        console.log(`[DEBUG] Using pack loader '${packLoader}' for mod category`);
+        // console.log(`[DEBUG] Using pack loader '${packLoader}' for mod category`);
         return packLoader;
       }
       
@@ -331,13 +333,13 @@ class Modpack {
       // Otherwise fall back to category defaults
       if (proj?.loaders && Array.isArray(proj.loaders) && proj.loaders.length > 0) {
         const selectedLoader = proj.loaders[0];
-        console.log(`[DEBUG] Using project loader '${selectedLoader}' for ${cat} (available: ${proj.loaders.join(', ')})`);
+        // console.log(`[DEBUG] Using project loader '${selectedLoader}' for ${cat} (available: ${proj.loaders.join(', ')})`);
         return selectedLoader; // Use first available loader
       }
       
       // Fallback if no project data available
-      const fallbackLoader = (cat === "resourcepack" || cat === "shaderpack") ? "minecraft" : packLoader;
-      console.log(`[DEBUG] No project loaders found, using fallback '${fallbackLoader}' for ${cat}`);
+      const fallbackLoader = (cat === "resourcepack" || cat === "shaderpack" || cat === "datapack") ? "minecraft" : packLoader;
+      // console.log(`[DEBUG] No project loaders found, using fallback '${fallbackLoader}' for ${cat}`);
       return fallbackLoader;
     }
 
@@ -373,8 +375,9 @@ class Modpack {
         const rep = projectEntries.get(pid)?.anyVersion;
         const cat = projectEntries.get(pid)?.category || "mod";
         const proj = projectMap.get(pid);
+        const projectName = proj?.title || rep?.name || "(unknown)";
         const loader = getLoaderForProject(proj, cat, packLoader);
-        const bestModrinth = await getBestTargetVersion(pid, targetMc, loader, rep?.name);
+        const bestModrinth = await getBestTargetVersion(pid, targetMc, loader, projectName);
 
         let best = bestModrinth;
         let source = proj ? "modrinth" : "none";
@@ -395,6 +398,7 @@ class Modpack {
           (proj?.project_type === "mod" || cat === "mod") ? "mod" :
           (proj?.project_type === "resourcepack" || cat === "resourcepack") ? "resourcepack" :
           (proj?.project_type === "shader" || cat === "shaderpack") ? "shader" :
+          (proj?.project_type === "datapack" || cat === "datapack") ? "datapack" :
           "project";
         const project_url = proj?.slug
           ? `https://modrinth.com/${typePath}/${proj.slug}`
@@ -404,7 +408,7 @@ class Modpack {
           project_id: pid,
           project_url,
           category: cat,
-          name: proj?.title || rep?.name || "(unknown)",
+          name: projectName,
           slug: proj?.slug,
           current_version_number: rep?.version_number || "-",
           current_mc: PACK_MC,
@@ -552,22 +556,26 @@ class ResultsTable {
     this.modsTable = $("mods-table");
     this.resTable = $("res-table");
     this.shaderTable = $("shader-table");
+    this.datapacksTable = $("datapacks-table");
   }
 
   clear() {
     this.modsTable.innerHTML = "";
     this.resTable.innerHTML = "";
     this.shaderTable.innerHTML = "";
+    this.datapacksTable.innerHTML = "";
   }
 
   render(rows) {
     const mods = rows.filter(r => r.category === "mod");
     const res  = rows.filter(r => r.category === "resourcepack");
     const sh   = rows.filter(r => r.category === "shaderpack");
+    const dp   = rows.filter(r => r.category === "datapack");
 
-    this.modsTable.innerHTML   = this.renderTable(mods);
-    this.resTable.innerHTML    = this.renderTable(res);
-    this.shaderTable.innerHTML = this.renderTable(sh);
+    this.modsTable.innerHTML     = this.renderTable(mods);
+    this.resTable.innerHTML      = this.renderTable(res);
+    this.shaderTable.innerHTML   = this.renderTable(sh);
+    this.datapacksTable.innerHTML = this.renderTable(dp);
   }
 
   renderTable(rows) {
@@ -1281,6 +1289,7 @@ buildBtn.addEventListener("click", async () => {
 function inferPathFromCategory(row) {
   if (row.category === "resourcepack") return `resourcepacks/${(row.slug || "resourcepack")}.zip`;
   if (row.category === "shaderpack")   return `shaderpacks/${(row.slug || "shaderpack")}.zip`;
+  if (row.category === "datapack")     return `datapacks/${(row.slug || "datapack")}.zip`;
   return `mods/${(row.slug || "mod")}.jar`;
 }
 
